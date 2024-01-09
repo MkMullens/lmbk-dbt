@@ -6,8 +6,7 @@
 - Schema
 - Usage Examples
 - Data Sources 
-- ETL Diagram
-- Contact
+
 
 ## Overview
 
@@ -182,8 +181,7 @@ Data Source: lmbk-ga4-bigquery.analytics_310142291.events_intraday_*
 - Schema
 - Usage Examples
 - Data Sources
-- ETL Diagram
-- Contact
+
 
 ## Overview
 
@@ -266,8 +264,7 @@ Data Source: lmbk-ga4-bigquery.analytics_310142291.events_intraday_*
 - Schema
 - Usage Examples
 - Data Sources
-- ETL Diagram
-- Contact
+
 
 ## Overview
 
@@ -313,8 +310,7 @@ Data Source: lmbk-ga4-bigquery.analytics_310142291.events_intraday_*
 - Schema
 - Usage Examples
 - Data Sources
-- ETL Diagram
-- Contact
+
 
 ## Overview
 
@@ -361,8 +357,7 @@ Data Source: lmbk-ga4-bigquery.analytics_310142291.events_intraday_*
 - Schema
 - Usage Examples
 - Data Sources
-- ETL Diagram
-- Contact
+
 
 ## Overview
 
@@ -409,8 +404,7 @@ Data Source: lmbk-ga4-bigquery.analytics_310142291.events_intraday_*
 - Schema
 - Usage Examples
 - Data Sources
-- ETL Diagram
-- Contact
+
 
 ## Overview
 
@@ -459,8 +453,7 @@ Data Source: lmbk-ga4-bigquery.analytics_310142291.events_intraday_*
 - Schema
 - Usage Examples
 - Data Sources
-- ETL Diagram
-- Contact
+
 
 ## Overview
 
@@ -504,8 +497,7 @@ Data Source: lmbk-ga4-bigquery.analytics_310142291.events_intraday_*
 - Schema
 - Usage Examples
 - Data Sources
-- ETL Diagram
-- Contact
+
 
 ## Overview
 
