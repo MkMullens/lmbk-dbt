@@ -40,7 +40,7 @@ WITH base_table AS (
   FROM
     {{ source('ga4', 'events') }}
     {% if is_incremental() %}
-        where cast( replace(_table_suffix, 'intraday_', '') as int64) >= {{var('start_date')}}
+       where cast( replace(_table_suffix, 'intraday_', '') as int64) >= {{var('start_date')}}
         and parse_date('%Y%m%d', left( replace(_table_suffix, 'intraday_', ''), 8)) in ({{ partitions_to_replace | join(',') }})
     {% endif %}
 )
@@ -51,9 +51,9 @@ WITH base_table AS (
     event_timestamp AS event_timestamp_microseconds,
     user_pseudo_id,
     event_name,
-    collected_traffic_source.manual_campaign_name campaign_name,
-    collected_traffic_source.manual_source manual_source,
-    collected_traffic_source.manual_medium manual_medium,
+    COALESCE(REGEXP_EXTRACT(CASE WHEN c.key = 'page_location' THEN c.value.string_value END, r'[?&]utm_campaign=([^&]*)'), collected_traffic_source.manual_campaign_name) AS campaign_name,
+    COALESCE(REGEXP_EXTRACT(CASE WHEN c.key = 'page_location' THEN c.value.string_value END, r'[?&]utm_source=([^&]*)'), collected_traffic_source.manual_source) AS manual_source,
+    COALESCE(REGEXP_EXTRACT(CASE WHEN c.key = 'page_location' THEN c.value.string_value END, r'[?&]utm_medium=([^&]*)'), collected_traffic_source.manual_medium) AS manual_medium,
     collected_traffic_source.gclid gclid,
     collected_traffic_source.dclid dclid,
     collected_traffic_source.srsltid srsltid,
