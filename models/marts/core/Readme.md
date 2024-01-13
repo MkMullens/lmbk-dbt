@@ -559,3 +559,113 @@ This document describes the structure and functionality of the Web Analytics and
 
 ## Data Sources  
 Data Source: lmbk-ga4-bigquery.analytics_310142291.events_intraday_*
+
+# FACT Table: fct_ga4__user_ids
+
+## Table of Contents
+
+- Overview
+- Schema
+- Data Sources
+
+
+## Overview
+
+The provided query is a complex SQL query designed to gather and process user session data from an online service or application. The query consists of several subqueries that create temporary tables to store intermediate results before combining them in the final SELECT statement. Below is a description and data dictionary for each part of the query:
+
+### Subqueries and Their Descriptions
+
+#### 1. master_sessions
+- **Purpose**: Selects the last event for each session.
+- **Fields**:
+  - `session_id`: Unique identifier for a session.
+  - `user_pseudo_id`: Pseudo-identifier for a user.
+
+#### 2. sessions_info
+- **Purpose**: Aggregates session information and ranks sessions by time.
+- **Fields**:
+  - `event_timestamp`: Timestamp of the event.
+  - `current_to_first_ranking`: Rank of the current session relative to the first.
+  - `first_to_current_ranking`: Rank of the first session relative to the current.
+  - `user_pseudo_id`, `session_id`, and other fields from `fct_user_journey`.
+
+#### 3. first_session_info
+- **Purpose**: Identifies the first session for each user.
+- **Fields**:
+  - `user_pseudo_id`: Pseudo-identifier for a user.
+  - `session_id`: Unique identifier for a session.
+  - `first_session_campaign`: Campaign name of the first session.
+  - `first_session_source`: Source of the first session.
+  - `first_session_medium`: Medium of the first session.
+  - `first_session_country`: Country of the first session.
+
+#### 4. current_session_info
+- **Purpose**: Identifies the current session for each user.
+- **Fields**: Similar to `first_session_info`, but for the current session.
+
+#### 5. purchase_info
+- **Purpose**: Aggregates purchase information per session.
+- **Fields**:
+  - `user_pseudo_id`: Pseudo-identifier for a user.
+  - `session_id`: Unique identifier for a session.
+  - `total_purchases`: Total number of purchases in the session.
+  - `purchase_revenue_in_usd`: Total revenue from purchases in USD.
+
+#### 6. this_session_matrices
+- **Purpose**: Computes metrics for each session.
+- **Fields**: Various metrics like event counts, session time, pages visited, etc.
+
+#### 7. all_sessions_matrices
+- **Purpose**: Aggregates session metrics over all sessions.
+- **Fields**: Aggregated session metrics.
+
+#### 8. prev_ranked_data
+- **Purpose**: Ranks sessions for different dimensions.
+- **Fields**: Various ranking metrics.
+
+#### 9. prev_aggregated_data
+- **Purpose**: Aggregates session data for previous sessions.
+- **Fields**: Arrays of distinct session values for various dimensions.
+
+#### 10. prev_sessions_matrices
+- **Purpose**: Computes metrics for previous sessions.
+- **Fields**: Metrics related to previous sessions.
+
+#### 11. this_sessions_de_dup
+- **Purpose**: De-duplicates session data.
+- **Fields**: Max values of source, medium, and campaign name per session.
+
+#### Final SELECT
+- **Purpose**: Combines all the above data.
+- **Fields**: Aggregates fields from all the above tables to provide a comprehensive view of each session, including first session data, current session data, previous session metrics, this session metrics, all sessions metrics, and purchase information.
+
+## Schema
+
+| Subquery/Join          | Field Name                  | Description                                                    |
+|------------------------|-----------------------------|----------------------------------------------------------------|
+| master_sessions        | `session_id`                | Unique identifier for a session.                               |
+|                        | `user_pseudo_id`            | Pseudo-identifier for a user.                                  |
+| sessions_info          | `event_timestamp`           | Timestamp of the event.                                        |
+|                        | `current_to_first_ranking`  | Rank of the current session relative to the first.             |
+|                        | `first_to_current_ranking`  | Rank of the first session relative to the current.             |
+|                        | Other fields from `fct_user_journey` | Fields inherited from the `fct_user_journey` dataset.      |
+| first_session_info     | `user_pseudo_id`            | Pseudo-identifier for a user.                                  |
+|                        | `session_id`                | Unique identifier for a session.                               |
+|                        | `first_session_campaign`    | Campaign name of the first session.                            |
+|                        | `first_session_source`      | Source of the first session.                                   |
+|                        | `first_session_medium`      | Medium of the first session.                                   |
+|                        | `first_session_country`     | Country of the first session.                                  |
+| current_session_info   | Similar to `first_session_info`, but for the current session. |
+| purchase_info          | `user_pseudo_id`            | Pseudo-identifier for a user.                                  |
+|                        | `session_id`                | Unique identifier for a session.                               |
+|                        | `total_purchases`           | Total number of purchases in the session.                      |
+|                        | `purchase_revenue_in_usd`   | Total revenue from purchases in USD.                           |
+| this_session_matrices  | Various metrics like event counts, session time, pages visited, etc. |
+| all_sessions_matrices  | Aggregated session metrics. |
+| prev_ranked_data       | Various ranking metrics.    |
+| prev_aggregated_data   | Arrays of distinct session values for various dimensions. |
+| prev_sessions_matrices | Metrics related to previous sessions. |
+| this_sessions_de_dup   | Max values of source, medium, and campaign name per session. |
+
+## Data Sources  
+Data Source: lmbk-ga4-bigquery.analytics_310142291.events_intraday_*
