@@ -5,7 +5,7 @@
 
 {{ config(
     materialized='incremental',
-    unique_key='unique_key'
+    unique_key=['session_id','user_pseudo_id','event_timestamp']
 ) }}
 
 WITH main_cte AS
