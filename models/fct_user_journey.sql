@@ -119,6 +119,7 @@ campaigns_url AS (
     MAX(CASE WHEN c.key = 'ga_session_number' THEN c.value.int_value END) AS visit_number,
     MAX(CASE WHEN c.key = 'page_title' THEN c.value.string_value END) AS page_title,
     MAX(CASE WHEN c.key = 'page_location' THEN c.value.string_value END) AS page_location,
+    MAX(CASE WHEN c.key = 'page_referrer' THEN c.value.string_value END) AS page_referrer
     
 
   FROM 
@@ -200,6 +201,9 @@ campaigns_url AS (
   FROM 
     screen_summary
 )
+-- ORIGINALLY THIS INTERMEDIATE CTE WAS THE FINAL TABLE
+, intermediate AS (
+
 SELECT DISTINCT
   CAST(FORMAT_DATE('%Y-%m-%d', PARSE_DATE('%Y%m%d', date)) AS DATE) AS event_date
   ,CAST(PARSE_TIMESTAMP('%Y-%m-%d %H:%M:%E6S', FORMAT_TIMESTAMP('%Y-%m-%d %H:%M:%E6S', TIMESTAMP_MICROS(event_timestamp_microseconds))) AS TIMESTAMP) AS event_timestamp
@@ -208,4 +212,36 @@ SELECT DISTINCT
   ,user_pseudo_id user_id
 FROM 
   screen_summary_agg
-WHERE session_id IS NOT NULL
+WHERE session_id IS NOT NULL)
+
+-- SESSION AGG is a cte where for each user_id a single session is being created. (the lastest session_id will be considered as the session)
+, session_agg AS (
+
+
+WITH ranked_sessions AS (
+  SELECT distinct
+    user_id,
+    event_timestamp,
+    session_id as session,
+    RANK() OVER (PARTITION BY user_id ORDER BY event_timestamp DESC) AS session_rank
+  FROM
+    intermediate
+)
+
+SELECT
+distinct
+uj.*
+, s.session
+
+FROM
+ intermediate as uj
+ LEFT JOIN ranked_sessions as s ON s.user_id = uj.user_id
+WHERE
+  session_rank = 1
+)
+-- FINAL QUERY
+-- USING THE PAGE REFF COLUMN CREATED EARLIER TO USE HERE
+Select distinct * EXCEPT(page_referrer,manual_source, manual_medium)
+,CASE WHEN manual_source = 'unknown' THEN  REGEXP_EXTRACT(page_referrer, r'\b(google|yahoo|linkedin|facebook|quant|instagram|reddit|ecosia|hotels\.cloudbed|upwork|bing|lmbksurfhouse)\b')  ELSE manual_source END as manual_source
+,CASE WHEN manual_medium = 'unknown' THEN  REGEXP_EXTRACT(page_referrer, r'\b(google|yahoo|linkedin|facebook|quant|instagram|reddit|ecosia|hotels\.cloudbed|upwork|bing|lmbksurfhouse)\b')  ELSE manual_medium END as manual_medium
+FROM session_agg

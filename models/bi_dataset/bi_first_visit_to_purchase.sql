@@ -17,6 +17,19 @@ Where user_id IN (select distinct user_id from purchase_users)
 Group by 1
 
  )
+ ,days_active as(
+
+SELECT user_id , count (distinct event_date) as active_days
+FROM   {{ref('fct_user_journey')}}
+WHERE 1=1 
+AND user_id IN (Select user_id FROM purchase_users)
+Group by 1
+Order by 2 DESC
+
+
+
+)
+
 
 
 SELECT *
@@ -61,8 +74,9 @@ FROM
 (Select * 
 ,  DATE_DIFF(purchase_date,first_visit_date,DAY) as days_diff
 FROM(
-Select user_id , MIN(purchase_date) as purchase_date , MIN(first_visit_date) as first_visit_date , MAX(manual_source) as manual_source, MAX(sub.campaign_name) as campaign_name , MAX(manual_medium) as manual_medium , MAX(sub.campaign_name_p) as campaign_name_p , MAX(manual_medium_p) as manual_medium_p, MAX(manual_source_p) as manual_source_p, SUM(sub.sessions) as sessions, ROUND(SUM(sub.Transaction_Amount),2) as Transaction_Amount
-FROM (Select uj.user_id
+Select user_id, MAX(active_days) as active_days , MIN(purchase_date) as purchase_date , MIN(first_visit_date) as first_visit_date , MAX(manual_source) as manual_source, MAX(sub.campaign_name) as campaign_name , MAX(manual_medium) as manual_medium , MAX(sub.campaign_name_p) as campaign_name_p , MAX(manual_medium_p) as manual_medium_p, MAX(manual_source_p) as manual_source_p, SUM(sub.sessions) as sessions, ROUND(SUM(sub.Transaction_Amount),2) as Transaction_Amount
+FROM (
+  Select uj.user_id , ad.active_days
 -- ,event_date
 , CASE WHEN event_name = 'first_visit' THEN campaign_name ELSE NULL END AS campaign_name
 , CASE WHEN event_name = 'first_visit' THEN manual_medium ELSE NULL END as manual_medium
@@ -75,9 +89,10 @@ FROM (Select uj.user_id
 , sc.sessions
 , purchase_revenue_in_usd as Transaction_Amount
 
--- ,  DATE_DIFF(purchase_date,first_visit_date,DAY) as days_diff
+
 FROM   {{ref('fct_user_journey')}}  as uj
 LEFT JOIN session_counts as sc ON sc.user_id = uj.user_id
+LEFT JOIN days_active as ad ON ad.user_id = uj.user_id
 WHERE 1=1
 AND uj.user_id IN (select user_id FROM purchase_users)
 AND event_name IN ('purchase' , 'first_visit')) as sub
