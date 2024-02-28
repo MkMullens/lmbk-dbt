@@ -5,7 +5,32 @@
 
 {{ config(
     materialized='incremental',
-    unique_key='unique_key'
+    unique_key='unique_key',
+    post_hook ='''
+    UPDATE lmbk-ga4-bigquery.dbt_development.fct_user_journey TGT
+    SET
+        TGT.user_id = SRC.user_id
+    FROM(
+        SELECT
+            unique_key
+            ,user_id
+        FROM(
+        SELECT
+            A.unique_key
+            ,COALESCE(B.user_pseudo_id,C.user_pseudo_id,A.user_pseudo_id) user_id
+            ,ROW_NUMBER() OVER(PARTITION BY unique_key ORDER BY B.event_timestamp DESC) R
+        FROM lmbk-ga4-bigquery.dbt_development.fct_user_journey A
+        LEFT JOIN
+            lmbk-ga4-bigquery.dbt_development.dim_ga4__user_session_mapping B
+        ON A.session_id = B.session_id
+        LEFT JOIN
+            lmbk-ga4-bigquery.dbt_development.dim_ga4__user_session_mapping C
+        ON A.user_pseudo_id = C.user_pseudo_id
+    )
+    WHERE R=1
+    ) SRC
+    WHERE SRC.unique_key = TGT.unique_key;
+    '''
 ) }}
 
 WITH base_table AS (
@@ -40,28 +65,43 @@ WITH base_table AS (
   FROM
     {{ source('ga4', 'events') }}
     {% if is_incremental() %}
-        where cast( replace(_table_suffix, 'intraday_', '') as int64) >= {{var('start_date')}}
+       where cast( replace(_table_suffix, 'intraday_', '') as int64) >= {{var('start_date')}}
         and parse_date('%Y%m%d', left( replace(_table_suffix, 'intraday_', ''), 8)) in ({{ partitions_to_replace | join(',') }})
     {% endif %}
+),
+campaigns_url AS (
+  SELECT * FROM(
+  SELECT DISTINCT
+    session_id
+    ,REGEXP_EXTRACT(CASE WHEN c.key = 'page_location' THEN c.value.string_value END, r'[?&]utm_campaign=([^&]*)') utm_campaign
+    ,REGEXP_EXTRACT(CASE WHEN c.key = 'page_location' THEN c.value.string_value END, r'[?&]utm_source=([^&]*)') utm_source
+    ,REGEXP_EXTRACT(CASE WHEN c.key = 'page_location' THEN c.value.string_value END, r'[?&]utm_medium=([^&]*)') utm_medium
+    ,REGEXP_EXTRACT(
+    CASE WHEN c.key = 'page_location' THEN c.value.string_value END, 
+    r'[?&]fbclid=([^&]*)'
+  ) fbclid
+  ,ROW_NUMBER() OVER(PARTITION BY session_id ORDER BY event_timestamp) R
+  FROM 
+    base_table,
+    UNNEST (event_params) c
+  WHERE c.key = 'page_location'
+  )
+  WHERE R=1
 )
 , unnested_events AS (
   SELECT
-    session_id,
+    A.session_id,
     event_date AS date,
     event_timestamp AS event_timestamp_microseconds,
     user_pseudo_id,
     event_name,
-    collected_traffic_source.manual_campaign_name campaign_name,
-    collected_traffic_source.manual_source manual_source,
-    collected_traffic_source.manual_medium manual_medium,
+    COALESCE(collected_traffic_source.manual_campaign_name,D.utm_campaign) AS campaign_name,
+    COALESCE(collected_traffic_source.manual_source,D.utm_source) AS manual_source,
+    COALESCE(collected_traffic_source.manual_medium,D.utm_medium) AS manual_medium,
     collected_traffic_source.gclid gclid,
     collected_traffic_source.dclid dclid,
     collected_traffic_source.srsltid srsltid,
-    CASE WHEN LOWER(collected_traffic_source.manual_source) LIKE '%facebook%' OR LOWER(collected_traffic_source.manual_source) LIKE '%instagram%' THEN
-  REGEXP_EXTRACT(
-    CASE WHEN c.key = 'page_location' THEN c.value.string_value END, 
-    r'[?&]fbclid=([^&]*)'
-  ) END fbclid,
+    D.fbclid,
     country,
     continent ,
     region ,
@@ -79,11 +119,14 @@ WITH base_table AS (
     MAX(CASE WHEN c.key = 'ga_session_number' THEN c.value.int_value END) AS visit_number,
     MAX(CASE WHEN c.key = 'page_title' THEN c.value.string_value END) AS page_title,
     MAX(CASE WHEN c.key = 'page_location' THEN c.value.string_value END) AS page_location,
+    MAX(CASE WHEN c.key = 'page_referrer' THEN c.value.string_value END) AS page_referrer
     
 
   FROM 
-    base_table,
-    UNNEST (event_params) c
+    base_table A
+    LEFT JOIN UNNEST (event_params) c
+    LEFT JOIN campaigns_url D
+    ON A.session_id = D.session_id
   GROUP BY 1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25
 )
 
@@ -158,11 +201,47 @@ WITH base_table AS (
   FROM 
     screen_summary
 )
+-- ORIGINALLY THIS INTERMEDIATE CTE WAS THE FINAL TABLE
+, intermediate AS (
+
 SELECT DISTINCT
   CAST(FORMAT_DATE('%Y-%m-%d', PARSE_DATE('%Y%m%d', date)) AS DATE) AS event_date
   ,CAST(PARSE_TIMESTAMP('%Y-%m-%d %H:%M:%E6S', FORMAT_TIMESTAMP('%Y-%m-%d %H:%M:%E6S', TIMESTAMP_MICROS(event_timestamp_microseconds))) AS TIMESTAMP) AS event_timestamp
   ,* EXCEPT(date, event_timestamp_microseconds)
-  ,FARM_FINGERPRINT(CONCAT(COALESCE(CAST(event_timestamp_microseconds AS STRING),''),COALESCE(CAST(session_id AS STRING),''),COALESCE(event_name,''),COALESCE(user_pseudo_id,''),COALESCE(CAST(date AS STRING),''),COALESCE(fbclid,''),COALESCE(gclid,'')))   unique_key
+  ,FARM_FINGERPRINT(CONCAT(COALESCE(CAST(event_timestamp_microseconds AS STRING),''),COALESCE(CAST(session_id AS STRING),''),COALESCE(event_name,''),COALESCE(user_pseudo_id,''),COALESCE(CAST(date AS STRING),'')))   unique_key
+  ,user_pseudo_id user_id
 FROM 
   screen_summary_agg
-WHERE session_id IS NOT NULL
+WHERE session_id IS NOT NULL)
+
+-- SESSION AGG is a cte where for each user_id a single session is being created. (the lastest session_id will be considered as the session)
+, session_agg AS (
+
+
+WITH ranked_sessions AS (
+  SELECT distinct
+    user_id,
+    event_timestamp,
+    session_id as session,
+    RANK() OVER (PARTITION BY user_id ORDER BY event_timestamp DESC) AS session_rank
+  FROM
+    intermediate
+)
+
+SELECT
+distinct
+uj.*
+, s.session
+
+FROM
+ intermediate as uj
+ LEFT JOIN ranked_sessions as s ON s.user_id = uj.user_id
+WHERE
+  session_rank = 1
+)
+-- FINAL QUERY
+-- USING THE PAGE REFF COLUMN CREATED EARLIER TO USE HERE
+Select distinct * EXCEPT(page_referrer,manual_source, manual_medium)
+,CASE WHEN manual_source = 'unknown' THEN  REGEXP_EXTRACT(page_referrer, r'\b(google|yahoo|linkedin|facebook|quant|instagram|reddit|ecosia|hotels\.cloudbed|upwork|bing|lmbksurfhouse)\b')  ELSE manual_source END as manual_source
+,CASE WHEN manual_medium = 'unknown' THEN  REGEXP_EXTRACT(page_referrer, r'\b(google|yahoo|linkedin|facebook|quant|instagram|reddit|ecosia|hotels\.cloudbed|upwork|bing|lmbksurfhouse)\b')  ELSE manual_medium END as manual_medium
+FROM session_agg
