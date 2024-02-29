@@ -11,7 +11,7 @@ Where event_name = 'purchase'
 -- AND user_id =  'g3LehWYGVG+Yp3L2i7I+9H+vsF7MvIgPPZX0rWuV0Rg=.1707442546'
  ),
  session_counts AS (
-Select user_id , Count(distinct session_id) as sessions
+Select user_id , Count(distinct session) as sessions
 FROM   {{ref('fct_user_journey')}} 
 Where user_id IN (select distinct user_id from purchase_users)
 Group by 1

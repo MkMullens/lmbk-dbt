@@ -223,7 +223,8 @@ WITH ranked_sessions AS (
     user_id,
     event_timestamp,
     session_id as session,
-    RANK() OVER (PARTITION BY user_id ORDER BY event_timestamp DESC) AS session_rank
+    event_date,
+    RANK() OVER (PARTITION BY user_id, event_date ORDER BY event_timestamp DESC) AS session_rank
   FROM
     intermediate
 )
@@ -235,7 +236,7 @@ uj.*
 
 FROM
  intermediate as uj
- LEFT JOIN ranked_sessions as s ON s.user_id = uj.user_id
+ LEFT JOIN ranked_sessions as s ON s.user_id = uj.user_id AND uj.event_date = s.event_date
 WHERE
   session_rank = 1
 )
@@ -243,5 +244,10 @@ WHERE
 -- USING THE PAGE REFF COLUMN CREATED EARLIER TO USE HERE
 Select distinct * EXCEPT(page_referrer,manual_source, manual_medium)
 ,CASE WHEN manual_source = 'unknown' THEN  REGEXP_EXTRACT(page_referrer, r'\b(google|yahoo|linkedin|facebook|quant|instagram|reddit|ecosia|hotels\.cloudbed|upwork|bing|lmbksurfhouse)\b')  ELSE manual_source END as manual_source
-,CASE WHEN manual_medium = 'unknown' THEN  REGEXP_EXTRACT(page_referrer, r'\b(google|yahoo|linkedin|facebook|quant|instagram|reddit|ecosia|hotels\.cloudbed|upwork|bing|lmbksurfhouse)\b')  ELSE manual_medium END as manual_medium
+, CASE WHEN manual_medium = 'unknown' AND page_referrer LIKE '%google%' THEN 'organic'
+      WHEN manual_medium = 'unknown' AND page_referrer LIKE '%lmbksurfhouse.com%' THEN 'referral'
+      WHEN manual_medium = 'unknown' AND page_referrer LIKE '%hotels.cloudbeds.com%' THEN 'referral'
+  WHEN manual_medium = 'unknown' AND REGEXP_EXTRACT(page_referrer, r'\b(yahoo|linkedin|facebook|quant|instagram|reddit|ecosia|hotels\.cloudbed|upwork|bing)\b') IS NOT NULL THEN 'cpc' 
+  ELSE manual_medium
+END AS manual_medium
 FROM session_agg
