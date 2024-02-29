@@ -17,7 +17,7 @@ Select o.event_date
 , category as Device_Category
 , page_location 
 , page_title
-, o.session_id as Session
+, o.session as Session
 -- , m.user_pseudo_id as User_ID
 , o.user_id as User_ID
 , purchase_revenue_in_usd as Transaction_Amount
