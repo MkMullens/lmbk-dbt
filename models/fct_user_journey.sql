@@ -243,11 +243,11 @@ WHERE
 -- FINAL QUERY
 -- USING THE PAGE REFF COLUMN CREATED EARLIER TO USE HERE
 Select distinct * EXCEPT(page_referrer,manual_source, manual_medium)
-,CASE WHEN manual_source = 'unknown' THEN  REGEXP_EXTRACT(page_referrer, r'\b(google|yahoo|linkedin|facebook|quant|instagram|reddit|ecosia|hotels\.cloudbed|upwork|bing|lmbksurfhouse)\b')  ELSE manual_source END as manual_source
+,CASE WHEN manual_source = 'unknown' THEN  REGEXP_EXTRACT(page_referrer, r'\b(google|yahoo|linkedin|facebook|quant|instagram|reddit|ecosia|hotels\.cloudbed|upwork|bing|lmbksurfhouse|tiktok)\b')  ELSE manual_source END as manual_source
 , CASE WHEN manual_medium = 'unknown' AND page_referrer LIKE '%google%' THEN 'organic'
       WHEN manual_medium = 'unknown' AND page_referrer LIKE '%lmbksurfhouse.com%' THEN 'referral'
       WHEN manual_medium = 'unknown' AND page_referrer LIKE '%hotels.cloudbeds.com%' THEN 'referral'
-  WHEN manual_medium = 'unknown' AND REGEXP_EXTRACT(page_referrer, r'\b(yahoo|linkedin|facebook|quant|instagram|reddit|ecosia|hotels\.cloudbed|upwork|bing)\b') IS NOT NULL THEN 'cpc' 
+  WHEN manual_medium = 'unknown' AND REGEXP_EXTRACT(page_referrer, r'\b(yahoo|linkedin|facebook|quant|instagram|reddit|ecosia|tiktok|upwork|bing)\b') IS NOT NULL THEN 'cpc' 
   ELSE manual_medium
 END AS manual_medium
 FROM session_agg
