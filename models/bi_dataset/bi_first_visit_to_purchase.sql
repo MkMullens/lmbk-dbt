@@ -12,7 +12,7 @@ Where event_name = 'purchase'
  ),
  
  first_visit_dates as (
-Select user_id , MIN(DATE(event_timestamp)) as first_visit 
+Select user_id , MIN(event_date) as first_visit 
 FROM  `lmbk-ga4-bigquery`.`dbt_development`.`fct_user_journey`
 WHERE user_id IN
 (
