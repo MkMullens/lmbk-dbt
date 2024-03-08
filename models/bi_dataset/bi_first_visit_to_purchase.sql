@@ -10,6 +10,21 @@ FROM   {{ref('fct_user_journey')}}
 Where event_name = 'purchase'
 -- AND user_id =  'g3LehWYGVG+Yp3L2i7I+9H+vsF7MvIgPPZX0rWuV0Rg=.1707442546'
  ),
+ 
+ first_visit_dates as (
+Select user_id , MIN(DATE(event_timestamp)) as first_visit 
+FROM  `lmbk-ga4-bigquery`.`dbt_development`.`fct_user_journey`
+WHERE user_id IN
+(
+  SELECT distinct user_id
+FROM   purchase_users
+
+)
+
+Group by 1
+
+
+ ),
  session_counts AS (
 Select user_id , Count(distinct session) as sessions
 FROM   {{ref('fct_user_journey')}} 
@@ -117,7 +132,7 @@ FROM (
 , CASE WHEN event_name = 'purchase' THEN manual_medium ELSE NULL END as manual_medium_p
 , CASE WHEN event_name = "purchase" then manual_source END as manual_source_p
 , CASE WHEN event_name = 'purchase' THEN event_date ELSE NULL END AS purchase_date
-, CASE WHEN event_name = 'first_visit' THEN event_date ELSE NULL END AS first_visit_date
+, fvd.first_visit AS first_visit_date
 , sc.sessions
 , purchase_revenue_in_usd as Transaction_Amount
 
@@ -126,6 +141,7 @@ FROM   {{ref('fct_user_journey')}}  as uj
 LEFT JOIN session_counts as sc ON sc.user_id = uj.user_id
 LEFT JOIN days_active as ad ON ad.user_id = uj.user_id
 LEFT JOIN active_days_before_purchase as adbp ON adbp.user_id = uj.user_id
+LEFT JOIN first_visit_dates as fvd ON fvd.user_id = uj.user_id
 WHERE 1=1
 AND uj.user_id IN (select user_id FROM purchase_users)
 AND event_name IN ('purchase' , 'first_visit')) as sub
