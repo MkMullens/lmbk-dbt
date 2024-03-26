@@ -65,20 +65,25 @@ Group by 1
 
 SELECT *
 ,CASE WHEN days_active_before_purchase = 0 THEN '0'
-        WHEN days_active_before_purchase >= 1 AND days_active_before_purchase <= 7 THEN '1-7'
-        WHEN days_active_before_purchase >=8 AND days_active_before_purchase <=14 THEN '8-14'
-        WHEN days_active_before_purchase >=15 AND days_active_before_purchase <=28 THEN '15-28'
-        WHEN days_active_before_purchase >=29 AND days_active_before_purchase <= 60 THEN '29-60'
-        WHEN days_active_before_purchase >=61 AND days_active_before_purchase <= 120 THEN '61-120'
-        WHEN days_active_before_purchase > 120 THEN '120+'
+        WHEN days_active_before_purchase = 1 THEN '1'
+        WHEN days_active_before_purchase = 2 THEN '2'
+        WHEN days_active_before_purchase = 3 THEN '3'
+        WHEN days_active_before_purchase = 4 THEN '4'
+        WHEN days_active_before_purchase = 5 THEN '5'
+        WHEN days_active_before_purchase = 6 THEN '6'
+        WHEN days_active_before_purchase = 7 THEN '7'
+        WHEN days_active_before_purchase >= 8 THEN '8+'
+
         END as days_active_before_purchase_category
 ,CASE WHEN days_active_before_purchase = 0 THEN 1
-        WHEN days_active_before_purchase >= 1 AND days_active_before_purchase <= 7 THEN 2
-        WHEN days_active_before_purchase >=8 AND days_active_before_purchase <=14 THEN  3
-        WHEN days_active_before_purchase >=15 AND days_active_before_purchase <=28 THEN 4
-        WHEN days_active_before_purchase >=29 AND days_active_before_purchase <= 60 THEN  5
-        WHEN days_active_before_purchase >=61 AND days_active_before_purchase <= 120 THEN 6
-        WHEN days_active_before_purchase > 120 THEN 7
+        WHEN days_active_before_purchase = 1 THEN 2
+        WHEN days_active_before_purchase = 2 THEN 3
+        WHEN days_active_before_purchase = 3 THEN 4
+        WHEN days_active_before_purchase = 4 THEN 5
+        WHEN days_active_before_purchase = 5 THEN 6
+        WHEN days_active_before_purchase = 6 THEN 7
+        WHEN days_active_before_purchase = 7 THEN 8
+        WHEN days_active_before_purchase >= 8 THEN 9
         END as days_active_before_purchase_category_rank
 ,CASE WHEN days_diff = 0 THEN '0'
         WHEN days_diff >= 1 AND days_diff <= 7 THEN '1-7'
