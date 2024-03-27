@@ -241,8 +241,7 @@ WHERE
   session_rank = 1
 )
 -- FINAL QUERY
--- USING THE PAGE REFF COLUMN CREATED EARLIER TO USE HERE
-Select distinct * EXCEPT(page_referrer,manual_source, manual_medium)
+, intermediate_2 AS (Select distinct * EXCEPT(page_referrer,manual_source, manual_medium)
 ,CASE WHEN manual_source = 'unknown' THEN  REGEXP_EXTRACT(page_referrer, r'\b(google|yahoo|linkedin|facebook|quant|instagram|reddit|ecosia|hotels\.cloudbed|upwork|bing|lmbksurfhouse|tiktok)\b')  ELSE manual_source END as manual_source
 , CASE WHEN manual_medium = 'unknown' AND page_referrer LIKE '%google%' THEN 'organic'
       WHEN manual_medium = 'unknown' AND page_referrer LIKE '%lmbksurfhouse.com%' THEN 'referral'
@@ -251,3 +250,79 @@ Select distinct * EXCEPT(page_referrer,manual_source, manual_medium)
   ELSE manual_medium
 END AS manual_medium
 FROM session_agg
+-- WHERE session_id = 1711340896 -- 1711212779
+)
+
+,cloudbeds_sessions AS (
+
+Select distinct session_id
+FROM intermediate_2 
+Where manual_source LIKE '%beds%'
+)
+
+
+, clodubeds_rank AS (Select i.session_id
+, event_timestamp
+, manual_source
+, RANK() OVER (PARTITION BY i.session_id ORDER BY event_timestamp , CONCAT(CAST(event_timestamp AS STRING) ,'_', CAST(event_name AS STRING))) AS source_rank
+from intermediate_2 as i
+JOIN cloudbeds_sessions as s ON i.session_id = s.session_id)
+
+, cloudbeds_mapping AS (
+Select distinct i.session_id
+,i.event_timestamp
+,i.manual_source as o_source
+,r.manual_source as n_source
+FROM intermediate_2 as i
+JOIN clodubeds_rank as r ON i.session_id = r.session_id
+WHERE r.source_rank = 1
+)
+
+Select
+ i.event_date
+,i.event_timestamp
+,i.session_id
+,i.user_pseudo_id
+,i.event_name
+,i.campaign_name
+,i.gclid
+,i.dclid
+,i.srsltid
+,i.fbclid
+,i.country
+,i.continent
+,i.region
+,i.sub_continent
+,i.category
+,i.mobile_brand_name
+,i.mobile_model_name
+,i.operating_system
+,i.operating_system_version
+,i.language
+,i.browser
+,i.hostname
+,i.purchase_revenue_in_usd
+,i.visit_id
+,i.visit_number
+,i.page_title
+,i.page_location
+,i.page_title_adjusted
+,i.page_rank
+,i.previous_page
+,i.next_page
+,i.last_page_rank
+,i.screens_on_a_visit
+,i.unique_key
+,i.user_id
+,i.session
+, CASE WHEN i.manual_source LIKE '%cloudbeds%' OR i.manual_source is null THEN m.n_source ELSE i.manual_source
+ END AS manual_source
+-- ,i.manual_source
+,i.manual_medium
+-- _manual_source
+
+
+
+FROM intermediate_2 as i
+LEFT JOIN cloudbeds_mapping as m ON m.session_id = i.session_id  AND m.event_timestamp = i.event_timestamp
+-- Order by 1 DESC , 2 ASC
